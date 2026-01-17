@@ -10,34 +10,6 @@ import streamlit as st
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
-# Lazy GPU imports (RAPIDS cuGraph for Linux/WSL GPU support)
-cudf = None
-cugraph = None
-nxcg = None
-cuml_kmeans = None
-GPU_AVAILABLE = None
-
-
-def check_gpu_available():
-    """Lazy check for GPU availability using RAPIDS cuGraph."""
-    global cudf, cugraph, nxcg, cuml_kmeans, GPU_AVAILABLE
-    if GPU_AVAILABLE is None:
-        try:
-            import cudf as _cudf
-            import cugraph as _cugraph
-            import nx_cugraph as _nxcg
-            from cuml.cluster import KMeans as _KMeans
-
-            cudf = _cudf
-            cugraph = _cugraph
-            nxcg = _nxcg
-            cuml_kmeans = _KMeans
-            GPU_AVAILABLE = True
-        except (ImportError, Exception):
-            GPU_AVAILABLE = False
-    return GPU_AVAILABLE
-
-
 # Configuration
 DATA_DIR = Path(__file__).parent.parent / "data"
 TRANSACTIONS_DIR = DATA_DIR / "transactions"
@@ -154,79 +126,6 @@ def detect_clusters_networkx(G: nx.DiGraph, n_clusters: int = 3) -> dict:
     return {node: int(label) for node, label in zip(nodes, labels)}
 
 
-def detect_clusters_gpu(G: nx.DiGraph, n_clusters: int = 3) -> dict:
-    """Detect clusters using GPU-accelerated KMeans with RAPIDS cuML."""
-    global cudf, cuml_kmeans, nxcg
-    if cudf is None or cuml_kmeans is None or len(G.nodes()) == 0:
-        return {}
-
-    # Use nx_cugraph for GPU-accelerated graph metrics if available
-    try:
-        G_undirected = G.to_undirected()
-        # GPU-accelerated PageRank via nx_cugraph backend
-        pagerank = nx.pagerank(G, backend="cugraph")
-        clustering_coef = nx.clustering(G_undirected, backend="cugraph")
-    except Exception:
-        # Fallback to CPU for graph metrics
-        pagerank = nx.pagerank(G)
-        clustering_coef = nx.clustering(G.to_undirected())
-
-    # Build node features
-    in_deg = dict(G.in_degree())
-    out_deg = dict(G.out_degree())
-    total_deg = {n: in_deg.get(n, 0) + out_deg.get(n, 0) for n in G.nodes()}
-
-    nodes = list(G.nodes())
-    features = []
-    for node in nodes:
-        out_edges = G.out_edges(node, data=True)
-        in_edges = G.in_edges(node, data=True)
-        montant_emis = sum(d.get("weight", 0) for _, _, d in out_edges)
-        nb_tx_emis = sum(d.get("count", 0) for _, _, d in out_edges)
-        montant_recu = sum(d.get("weight", 0) for _, _, d in in_edges)
-        nb_tx_recu = sum(d.get("count", 0) for _, _, d in in_edges)
-        features.append(
-            [
-                total_deg[node],
-                clustering_coef.get(node, 0),
-                pagerank.get(node, 0),
-                montant_emis,
-                montant_recu,
-                nb_tx_emis,
-                nb_tx_recu,
-            ]
-        )
-
-    # GPU-accelerated standardization and KMeans with cuDF/cuML
-    df = cudf.DataFrame(
-        features,
-        columns=[
-            "degree",
-            "clustering",
-            "pagerank",
-            "montant_emis",
-            "montant_recu",
-            "nb_tx_emis",
-            "nb_tx_recu",
-        ],
-    )
-
-    # Standardize on GPU
-    mean = df.mean()
-    std = df.std() + 1e-8
-    df_scaled = (df - mean) / std
-
-    # cuML KMeans clustering on GPU
-    n_clusters = min(n_clusters, len(nodes))
-    kmeans = cuml_kmeans(n_clusters=n_clusters, random_state=42)
-    labels = kmeans.fit_predict(df_scaled)
-
-    # Convert cuDF Series to list
-    labels_list = labels.to_pandas().tolist()
-
-    return {node: int(label) for node, label in zip(nodes, labels_list)}
-
-
 def filter_by_degree(G: nx.DiGraph, min_deg: int, max_deg: int) -> nx.DiGraph:
     G_undirected = G.to_undirected()
     degrees = dict(G_undirected.degree())
@@ -329,19 +228,6 @@ def main() -> None:
     st.set_page_config(page_title="Transaction Network", page_icon="🔗", layout="wide")
     st.title("🔗 Transaction Network Visualization")
 
-    st.sidebar.markdown("---")
-    engine_options = ["CPU", "GPU (RAPIDS cuGraph)"]
-    cluster_engine = st.sidebar.radio("Moteur clustering", engine_options, index=0)
-
-    # Only check GPU availability when GPU mode is selected
-    use_gpu = False
-    if cluster_engine == "GPU (RAPIDS cuGraph)":
-        if check_gpu_available():
-            use_gpu = True
-        else:
-            st.sidebar.error("RAPIDS non disponible, utilisation CPU")
-            cluster_engine = "CPU"
-
     st.sidebar.header("Filtres")
     time_period = st.sidebar.selectbox("Période", list(TIME_FILTERS.keys()), index=5)
     days = TIME_FILTERS[time_period]
@@ -352,19 +238,11 @@ def main() -> None:
         G_full = create_networkx_graph(agg_df_full)
 
         max_clusters = st.sidebar.slider(
-            "Nb clusters max", min_value=2, max_value=3, value=3
+            "Nb clusters max", min_value=2, max_value=10, value=3
         )
 
-        # Clustering selon moteur choisi
-        if use_gpu:
-            try:
-                cluster_map = detect_clusters_gpu(G_full, n_clusters=max_clusters)
-                st.sidebar.success("✓ GPU clustering (RAPIDS cuGraph/cuML)")
-            except Exception as e:
-                st.sidebar.error(f"GPU error: {e}")
-                cluster_map = detect_clusters_networkx(G_full, n_clusters=max_clusters)
-        else:
-            cluster_map = detect_clusters_networkx(G_full, n_clusters=max_clusters)
+        # Clustering CPU
+        cluster_map = detect_clusters_networkx(G_full, n_clusters=max_clusters)
 
         # Filtrer par période
         df_filtered = filter_by_period(df_raw, days)

@@ -2,88 +2,24 @@
   "scripts\\generate_structure.py": {
     "classes": [],
     "functions": [
-      {
-        "name": "extract_structure",
-        "line": 9,
-        "args": ["file_path"]
-      },
-      {
-        "name": "generate_project_structure",
-        "line": 67,
-        "args": []
-      },
-      {
-        "name": "main",
-        "line": 88,
-        "args": []
-      }
+      {"name": "extract_structure", "args": ["file_path"]},
+      {"name": "generate_project_structure", "args": []},
+      {"name": "main", "args": []}
     ],
     "variables": []
   },
   "src\\app.py": {
     "classes": [],
     "functions": [
-      {
-        "name": "check_gpu_available",
-        "line": 21,
-        "args": []
-      },
-      {
-        "name": "load_transactions",
-        "line": 67,
-        "args": []
-      },
-      {
-        "name": "filter_by_period",
-        "line": 75,
-        "args": ["df", "days"]
-      },
-      {
-        "name": "aggregate_by_client",
-        "line": 84,
-        "args": ["df"]
-      },
-      {
-        "name": "create_networkx_graph",
-        "line": 97,
-        "args": ["agg_df"]
-      },
-      {
-        "name": "detect_clusters_networkx",
-        "line": 110,
-        "args": ["G", "n_clusters"]
-      },
-      {
-        "name": "detect_clusters_gpu",
-        "line": 157,
-        "args": ["G", "n_clusters"]
-      },
-      {
-        "name": "filter_by_degree",
-        "line": 230,
-        "args": ["G", "min_deg", "max_deg"]
-      },
-      {
-        "name": "visualize_graph_plotly",
-        "line": 237,
-        "args": ["G", "cluster_map"]
-      },
-      {
-        "name": "main",
-        "line": 328,
-        "args": []
-      }
+      {"name": "load_transactions", "args": []},
+      {"name": "filter_by_period", "args": ["df", "days"]},
+      {"name": "aggregate_by_client", "args": ["df"]},
+      {"name": "create_networkx_graph", "args": ["agg_df"]},
+      {"name": "detect_clusters_networkx", "args": ["G", "n_clusters"]},
+      {"name": "filter_by_degree", "args": ["G", "min_deg", "max_deg"]},
+      {"name": "visualize_graph_plotly", "args": ["G", "cluster_map"]},
+      {"name": "main", "args": []}
     ],
-    "variables": [
-      {"name": "cudf", "line": 14},
-      {"name": "cugraph", "line": 15},
-      {"name": "nxcg", "line": 16},
-      {"name": "cuml_kmeans", "line": 17},
-      {"name": "GPU_AVAILABLE", "line": 18},
-      {"name": "DATA_DIR", "line": 42},
-      {"name": "TRANSACTIONS_DIR", "line": 43},
-      {"name": "TIME_FILTERS", "line": 45},
-      {"name": "DEGREE_FILTERS", "line": 54}
-    ]
+    "variables": ["DATA_DIR", "TRANSACTIONS_DIR", "TIME_FILTERS", "DEGREE_FILTERS"]
   }
 }
