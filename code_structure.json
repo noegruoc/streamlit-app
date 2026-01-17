@@ -1,0 +1,25 @@
+{
+  "scripts\\generate_structure.py": {
+    "classes": [],
+    "functions": [
+      {
+        "name": "extract_structure",
+        "line": 9,
+        "args": [
+          "file_path"
+        ]
+      },
+      {
+        "name": "generate_project_structure",
+        "line": 67,
+        "args": []
+      },
+      {
+        "name": "main",
+        "line": 88,
+        "args": []
+      }
+    ],
+    "variables": []
+  }
+}
